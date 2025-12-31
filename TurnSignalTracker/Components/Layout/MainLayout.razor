@@ -1,0 +1,49 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@using Microsoft.AspNetCore.Components.Authorization
+
+<div class="flex h-screen bg-gray-50">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white shadow-md hidden md:flex flex-col">
+        <div class="p-6">
+            <h1 class="text-2xl font-bold text-blue-600 tracking-tight">TurnSignal<span class="text-slate-800">Tracker</span></h1>
+        </div>
+        
+        <nav class="flex-1 px-4 space-y-2">
+            <NavLink href="" Match="NavLinkMatch.All" class="flex items-center px-4 py-3 text-gray-600 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <span class="mr-3">📊</span> Dashboard
+            </NavLink>
+
+            <AuthorizeView>
+                <Authorized>
+                    <NavLink href="admin/dashboard" class="flex items-center px-4 py-3 text-gray-600 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        <span class="mr-3">👮</span> Admin Portal
+                    </NavLink>
+                </Authorized>
+            </AuthorizeView>
+        </nav>
+
+        <div class="p-4 border-t">
+            <AuthorizeView>
+                <Authorized>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-gray-700">@context.User.Identity?.Name</span>
+                        <a href="api/auth/logout" class="text-sm text-red-500 hover:text-red-700">Logout</a>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <a href="login" class="block w-full text-center px-4 py-2 text-sm font-bold text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors">
+                        Admin Login
+                    </a>
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto">
+        <div class="container mx-auto px-6 py-8">
+            @Body
+        </div>
+    </main>
+</div>
