@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v8.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v8.0": {
+      "TurnSignalViolationTracker.Core/1.0.0": {
+        "runtime": {
+          "TurnSignalViolationTracker.Core.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "TurnSignalViolationTracker.Core/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

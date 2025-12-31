@@ -1,0 +1,16 @@
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.csproj.AssemblyReference.cache
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.AssemblyInfoInputs.cache
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.AssemblyInfo.cs
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.csproj.CoreCompileInputs.cache
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.sourcelink.json
+/workspace/src/TurnSignalViolationTracker.Infrastructure/bin/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.deps.json
+/workspace/src/TurnSignalViolationTracker.Infrastructure/bin/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.dll
+/workspace/src/TurnSignalViolationTracker.Infrastructure/bin/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.pdb
+/workspace/src/TurnSignalViolationTracker.Infrastructure/bin/Debug/net8.0/TurnSignalViolationTracker.Core.dll
+/workspace/src/TurnSignalViolationTracker.Infrastructure/bin/Debug/net8.0/TurnSignalViolationTracker.Core.pdb
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/TurnSign.44F06A10.Up2Date
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.dll
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/refint/TurnSignalViolationTracker.Infrastructure.dll
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/TurnSignalViolationTracker.Infrastructure.pdb
+/workspace/src/TurnSignalViolationTracker.Infrastructure/obj/Debug/net8.0/ref/TurnSignalViolationTracker.Infrastructure.dll

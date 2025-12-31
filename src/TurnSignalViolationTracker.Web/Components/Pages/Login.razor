@@ -1,0 +1,125 @@
+@page "/login"
+@inject IAuthService AuthService
+@inject AuthStateService AuthState
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex align-center" Style="min-height: 100vh;">
+    <MudPaper Elevation="3" Class="pa-8 rounded-lg" Style="width: 100%;">
+        <MudStack Spacing="4" AlignItems="AlignItems.Center">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.DirectionsCar" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h4" Class="fw-bold" Color="Color.Primary">Turn Signal Tracker</MudText>
+            </MudStack>
+            
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Align="Align.Center">
+                Track and report turn signal violations
+            </MudText>
+            
+            <MudDivider Class="my-4" Style="width: 100%;" />
+            
+            <MudForm @ref="_form" Class="w-100">
+                <MudStack Spacing="3" Class="w-100">
+                    <MudTextField @bind-Value="_username" 
+                                  Label="Username" 
+                                  Variant="Variant.Outlined"
+                                  Required="true"
+                                  RequiredError="Username is required"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Person"
+                                  Immediate="true" />
+                    
+                    <MudTextField @bind-Value="_password" 
+                                  Label="Password" 
+                                  Variant="Variant.Outlined"
+                                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                  Required="true"
+                                  RequiredError="Password is required"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                                  OnAdornmentClick="@(() => _showPassword = !_showPassword)"
+                                  Immediate="true" />
+                    
+                    <MudButton Variant="Variant.Filled" 
+                               Color="Color.Primary" 
+                               FullWidth="true" 
+                               Size="Size.Large"
+                               OnClick="@HandleLogin"
+                               Disabled="@_isLoading"
+                               Class="mt-2">
+                        @if (_isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Signing in...</span>
+                        }
+                        else
+                        {
+                            <span>Sign In</span>
+                        }
+                    </MudButton>
+                </MudStack>
+            </MudForm>
+            
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-4">
+                Default credentials: admin / admin123
+            </MudText>
+        </MudStack>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private MudForm? _form;
+    private string _username = string.Empty;
+    private string _password = string.Empty;
+    private bool _showPassword = false;
+    private bool _isLoading = false;
+
+    protected override void OnInitialized()
+    {
+        if (AuthState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        if (_form != null)
+        {
+            await _form.Validate();
+            if (!_form.IsValid)
+                return;
+        }
+
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AuthService.LoginAsync(new LoginDto
+            {
+                Username = _username,
+                Password = _password
+            });
+
+            if (result.Success)
+            {
+                AuthState.Login(result.UserId!.Value, result.Username!, result.FullName!);
+                Snackbar.Add($"Welcome back, {result.FullName}!", Severity.Success);
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                Snackbar.Add(result.ErrorMessage ?? "Login failed", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Login error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}
