@@ -1,0 +1,172 @@
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudAvatar Size="Size.Medium" Style="background: transparent;">
+                <MudImage Src="@BrandLogoUrl" Alt="@Violation?.CarMake" Width="32" Height="32" ObjectFit="ObjectFit.Contain" />
+            </MudAvatar>
+            <MudText Typo="Typo.h6">@Violation?.CarMake @Violation?.CarModel</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (Violation != null)
+        {
+            <MudStack Spacing="4">
+                <!-- Vehicle Info -->
+                <MudPaper Elevation="0" Class="pa-4 rounded-lg" Style="background: var(--mud-palette-background-gray);">
+                    <MudText Typo="Typo.subtitle2" Class="fw-bold mb-2">Vehicle Information</MudText>
+                    <MudGrid>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Make</MudText>
+                            <MudText Typo="Typo.body2">@Violation.CarMake</MudText>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Model</MudText>
+                            <MudText Typo="Typo.body2">@Violation.CarModel</MudText>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Color</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.Circle" Style="@($"color: {GetCssColor(Violation.CarColor)};")" Size="Size.Small" />
+                                <MudText Typo="Typo.body2">@Violation.CarColor</MudText>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Year</MudText>
+                            <MudText Typo="Typo.body2">@(Violation.CarYear?.ToString() ?? "Unknown")</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <!-- Violation Info -->
+                <MudPaper Elevation="0" Class="pa-4 rounded-lg" Style="background: var(--mud-palette-background-gray);">
+                    <MudText Typo="Typo.subtitle2" Class="fw-bold mb-2">Violation Details</MudText>
+                    <MudGrid>
+                        <MudItem xs="12">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Type</MudText>
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled">
+                                @GetViolationTypeName(Violation.ViolationType)
+                            </MudChip>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Date</MudText>
+                            <MudText Typo="Typo.body2">@Violation.OccurredAt.ToString("MMMM dd, yyyy")</MudText>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Time</MudText>
+                            <MudText Typo="Typo.body2">@Violation.OccurredAt.ToString("hh:mm tt")</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                <!-- Location Info -->
+                <MudPaper Elevation="0" Class="pa-4 rounded-lg" Style="background: var(--mud-palette-background-gray);">
+                    <MudText Typo="Typo.subtitle2" Class="fw-bold mb-2">Location</MudText>
+                    <MudGrid>
+                        @if (!string.IsNullOrEmpty(Violation.LocationDescription))
+                        {
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Description</MudText>
+                                <MudText Typo="Typo.body2">@Violation.LocationDescription</MudText>
+                            </MudItem>
+                        }
+                        @if (!string.IsNullOrEmpty(Violation.City) || !string.IsNullOrEmpty(Violation.State))
+                        {
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Address</MudText>
+                                <MudText Typo="Typo.body2">@Violation.City, @Violation.State @Violation.Country</MudText>
+                            </MudItem>
+                        }
+                        @if (Violation.Latitude.HasValue && Violation.Longitude.HasValue)
+                        {
+                            <MudItem xs="12">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Coordinates</MudText>
+                                <MudText Typo="Typo.body2">@Violation.Latitude.Value.ToString("F6"), @Violation.Longitude.Value.ToString("F6")</MudText>
+                                <MudButton Variant="Variant.Text" 
+                                           Size="Size.Small" 
+                                           StartIcon="@Icons.Material.Filled.Map"
+                                           Href="@($"https://www.google.com/maps?q={Violation.Latitude},{Violation.Longitude}")"
+                                           Target="_blank">
+                                    View on Map
+                                </MudButton>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </MudPaper>
+
+                <!-- Notes & Transcript -->
+                @if (!string.IsNullOrEmpty(Violation.Notes) || !string.IsNullOrEmpty(Violation.OriginalVoiceTranscript))
+                {
+                    <MudPaper Elevation="0" Class="pa-4 rounded-lg" Style="background: var(--mud-palette-background-gray);">
+                        <MudText Typo="Typo.subtitle2" Class="fw-bold mb-2">Additional Information</MudText>
+                        @if (!string.IsNullOrEmpty(Violation.OriginalVoiceTranscript))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Voice Transcript</MudText>
+                            <MudText Typo="Typo.body2" Class="mb-2" Style="font-style: italic;">"@Violation.OriginalVoiceTranscript"</MudText>
+                        }
+                        @if (!string.IsNullOrEmpty(Violation.Notes))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Notes</MudText>
+                            <MudText Typo="Typo.body2">@Violation.Notes</MudText>
+                        }
+                    </MudPaper>
+                }
+
+                <!-- Metadata -->
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Logged by @Violation.CreatedByUserName on @Violation.CreatedAt.ToString("MMM dd, yyyy 'at' hh:mm tt")
+                    </MudText>
+                </MudStack>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => MudDialog?.Close())">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public Violation? Violation { get; set; }
+
+    [Parameter]
+    public string BrandLogoUrl { get; set; } = string.Empty;
+
+    private string GetViolationTypeName(ViolationType type)
+    {
+        return type switch
+        {
+            ViolationType.LeftTurnWithoutSignal => "Left Turn Without Signal",
+            ViolationType.RightTurnWithoutSignal => "Right Turn Without Signal",
+            ViolationType.LaneChangeLeftWithoutSignal => "Lane Change Left Without Signal",
+            ViolationType.LaneChangeRightWithoutSignal => "Lane Change Right Without Signal",
+            ViolationType.UTurnWithoutSignal => "U-Turn Without Signal",
+            _ => "Unknown"
+        };
+    }
+
+    private string GetCssColor(string colorName)
+    {
+        return colorName.ToLower() switch
+        {
+            "black" => "#000000",
+            "white" => "#ffffff",
+            "silver" or "gray" or "grey" => "#9e9e9e",
+            "red" => "#f44336",
+            "blue" => "#2196f3",
+            "green" => "#4caf50",
+            "yellow" => "#ffeb3b",
+            "orange" => "#ff9800",
+            "brown" => "#795548",
+            "purple" => "#9c27b0",
+            "gold" => "#ffd700",
+            "beige" or "tan" => "#d2b48c",
+            _ => "#607d8b"
+        };
+    }
+}

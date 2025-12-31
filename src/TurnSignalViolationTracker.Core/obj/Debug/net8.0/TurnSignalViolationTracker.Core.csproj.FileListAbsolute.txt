@@ -1,0 +1,12 @@
+/workspace/src/TurnSignalViolationTracker.Core/bin/Debug/net8.0/TurnSignalViolationTracker.Core.deps.json
+/workspace/src/TurnSignalViolationTracker.Core/bin/Debug/net8.0/TurnSignalViolationTracker.Core.dll
+/workspace/src/TurnSignalViolationTracker.Core/bin/Debug/net8.0/TurnSignalViolationTracker.Core.pdb
+/workspace/src/TurnSignalViolationTracker.Core/obj/Debug/net8.0/TurnSignalViolationTracker.Core.GeneratedMSBuildEditorConfig.editorconfig
+/workspace/src/TurnSignalViolationTracker.Core/obj/Debug/net8.0/TurnSignalViolationTracker.Core.AssemblyInfoInputs.cache
+/workspace/src/TurnSignalViolationTracker.Core/obj/Debug/net8.0/TurnSignalViolationTracker.Core.AssemblyInfo.cs
+/workspace/src/TurnSignalViolationTracker.Core/obj/Debug/net8.0/TurnSignalViolationTracker.Core.csproj.CoreCompileInputs.cache
+/workspace/src/TurnSignalViolationTracker.Core/obj/Debug/net8.0/TurnSignalViolationTracker.Core.sourcelink.json
+/workspace/src/TurnSignalViolationTracker.Core/obj/Debug/net8.0/TurnSignalViolationTracker.Core.dll
+/workspace/src/TurnSignalViolationTracker.Core/obj/Debug/net8.0/refint/TurnSignalViolationTracker.Core.dll
+/workspace/src/TurnSignalViolationTracker.Core/obj/Debug/net8.0/TurnSignalViolationTracker.Core.pdb
+/workspace/src/TurnSignalViolationTracker.Core/obj/Debug/net8.0/ref/TurnSignalViolationTracker.Core.dll

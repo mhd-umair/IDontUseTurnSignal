@@ -1,0 +1,208 @@
+@page "/violations"
+@inject IViolationRepository ViolationRepository
+@inject ICarBrandRepository CarBrandRepository
+@inject AuthStateService AuthState
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>All Violations - Turn Signal Tracker</PageTitle>
+
+@if (!AuthState.IsAuthenticated)
+{
+    <MudText>Please login to continue.</MudText>
+}
+else
+{
+    <MudStack Spacing="4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <div>
+                <MudText Typo="Typo.h4" Class="fw-bold">All Violations</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">@_totalCount violations recorded</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Href="/log-violation">
+                Log New Violation
+            </MudButton>
+        </MudStack>
+
+        <MudPaper Elevation="2" Class="rounded-lg">
+            <MudDataGrid T="Violation" 
+                         Items="@_violations" 
+                         Loading="@_isLoading"
+                         SortMode="SortMode.Multiple"
+                         Filterable="true"
+                         FilterMode="DataGridFilterMode.ColumnFilterRow"
+                         Dense="true"
+                         Hover="true"
+                         Class="rounded-lg">
+                <Columns>
+                    <PropertyColumn Property="x => x.OccurredAt" Title="Date/Time" Format="yyyy-MM-dd HH:mm" />
+                    <TemplateColumn Title="Vehicle" Sortable="true">
+                        <CellTemplate>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudAvatar Size="Size.Small" Style="background: transparent;">
+                                    <MudImage Src="@GetBrandLogoUrl(context.Item.CarMake)" Alt="@context.Item.CarMake" Width="20" Height="20" ObjectFit="ObjectFit.Contain" />
+                                </MudAvatar>
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2" Class="fw-bold">@context.Item.CarMake @context.Item.CarModel</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @context.Item.CarColor @(context.Item.CarYear.HasValue ? $"({context.Item.CarYear})" : "")
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Violation" Sortable="true">
+                        <CellTemplate>
+                            <MudChip T="string" Size="Size.Small" Color="@GetViolationColor(context.Item.ViolationType)" Variant="Variant.Outlined">
+                                @GetViolationTypeName(context.Item.ViolationType)
+                            </MudChip>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.LocationDescription" Title="Location" />
+                    <PropertyColumn Property="x => x.City" Title="City" />
+                    <PropertyColumn Property="x => x.CreatedByUserName" Title="Logged By" />
+                    <TemplateColumn Title="Actions" Sortable="false">
+                        <CellTemplate>
+                            <MudStack Row="true" Spacing="1">
+                                <MudIconButton Icon="@Icons.Material.Filled.Visibility" 
+                                               Size="Size.Small" 
+                                               Color="Color.Primary"
+                                               OnClick="@(() => ViewDetails(context.Item))"
+                                               Title="View Details" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" 
+                                               Size="Size.Small" 
+                                               Color="Color.Error"
+                                               OnClick="@(() => DeleteViolation(context.Item))"
+                                               Title="Delete" />
+                            </MudStack>
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="Violation" />
+                </PagerContent>
+                <NoRecordsContent>
+                    <MudStack AlignItems="AlignItems.Center" Class="py-8">
+                        <MudIcon Icon="@Icons.Material.Filled.DirectionsCar" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.h6" Color="Color.Secondary">No violations recorded yet</MudText>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/log-violation">Log Your First Violation</MudButton>
+                    </MudStack>
+                </NoRecordsContent>
+            </MudDataGrid>
+        </MudPaper>
+    </MudStack>
+}
+
+@code {
+    private List<Violation> _violations = new();
+    private int _totalCount = 0;
+    private bool _isLoading = true;
+    private Dictionary<string, string> _brandLogos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var brands = await CarBrandRepository.GetAllAsync();
+            _brandLogos = brands.ToDictionary(b => b.Name.ToLower(), b => b.LogoUrl);
+            
+            _violations = (await ViolationRepository.GetAllAsync()).ToList();
+            _totalCount = _violations.Count;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error loading violations: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string GetBrandLogoUrl(string brand)
+    {
+        if (_brandLogos.TryGetValue(brand.ToLower(), out var url))
+            return url;
+        return "/images/car-default.png";
+    }
+
+    private string GetViolationTypeName(ViolationType type)
+    {
+        return type switch
+        {
+            ViolationType.LeftTurnWithoutSignal => "Left Turn",
+            ViolationType.RightTurnWithoutSignal => "Right Turn",
+            ViolationType.LaneChangeLeftWithoutSignal => "Lane Change Left",
+            ViolationType.LaneChangeRightWithoutSignal => "Lane Change Right",
+            ViolationType.UTurnWithoutSignal => "U-Turn",
+            _ => "Unknown"
+        };
+    }
+
+    private Color GetViolationColor(ViolationType type)
+    {
+        return type switch
+        {
+            ViolationType.LeftTurnWithoutSignal => Color.Error,
+            ViolationType.RightTurnWithoutSignal => Color.Warning,
+            ViolationType.LaneChangeLeftWithoutSignal => Color.Info,
+            ViolationType.LaneChangeRightWithoutSignal => Color.Primary,
+            ViolationType.UTurnWithoutSignal => Color.Secondary,
+            _ => Color.Default
+        };
+    }
+
+    private async Task ViewDetails(Violation violation)
+    {
+        var parameters = new DialogParameters<ViolationDetailsDialog>
+        {
+            { x => x.Violation, violation },
+            { x => x.BrandLogoUrl, GetBrandLogoUrl(violation.CarMake) }
+        };
+        
+        var options = new DialogOptions 
+        { 
+            CloseButton = true, 
+            MaxWidth = MaxWidth.Medium, 
+            FullWidth = true 
+        };
+        
+        await DialogService.ShowAsync<ViolationDetailsDialog>("Violation Details", parameters, options);
+    }
+
+    private async Task DeleteViolation(Violation violation)
+    {
+        var result = await DialogService.ShowMessageBox(
+            "Confirm Delete",
+            $"Are you sure you want to delete this violation for the {violation.CarColor} {violation.CarMake} {violation.CarModel}?",
+            "Delete", 
+            cancelText: "Cancel");
+
+        if (result == true)
+        {
+            try
+            {
+                await ViolationRepository.DeleteAsync(violation.Id);
+                Snackbar.Add("Violation deleted successfully", Severity.Success);
+                await LoadData();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Error deleting violation: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

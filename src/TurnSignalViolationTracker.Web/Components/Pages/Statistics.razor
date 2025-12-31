@@ -1,0 +1,392 @@
+@page "/statistics"
+@inject IViolationRepository ViolationRepository
+@inject ICarBrandRepository CarBrandRepository
+@inject AuthStateService AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Statistics - Turn Signal Tracker</PageTitle>
+
+@if (!AuthState.IsAuthenticated)
+{
+    <MudText>Please login to continue.</MudText>
+}
+else if (_isLoading)
+{
+    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="min-height: 400px;">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+        <MudText>Loading statistics...</MudText>
+    </MudStack>
+}
+else if (_stats != null)
+{
+    <MudStack Spacing="4">
+        <MudText Typo="Typo.h4" Class="fw-bold">Detailed Statistics</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary">In-depth analysis of turn signal violations</MudText>
+
+        <!-- Summary Stats -->
+        <MudGrid>
+            <MudItem xs="6" sm="3">
+                <MudPaper Elevation="2" Class="pa-4 rounded-lg text-center">
+                    <MudText Typo="Typo.h3" Color="Color.Primary" Class="fw-bold">@_stats.TotalViolations</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Total Violations</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Elevation="2" Class="pa-4 rounded-lg text-center">
+                    <MudText Typo="Typo.h3" Color="Color.Info" Class="fw-bold">@_stats.ViolationsByBrand.Count</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Unique Brands</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Elevation="2" Class="pa-4 rounded-lg text-center">
+                    <MudText Typo="Typo.h3" Color="Color.Success" Class="fw-bold">@_stats.ViolationsByColor.Count</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Unique Colors</MudText>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Elevation="2" Class="pa-4 rounded-lg text-center">
+                    <MudText Typo="Typo.h3" Color="Color.Warning" Class="fw-bold">@_stats.ViolationLocations.Count</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Unique Locations</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Violations by Brand - Full Width with Logos -->
+        <MudPaper Elevation="2" Class="pa-6 rounded-lg">
+            <MudText Typo="Typo.h5" Class="fw-bold mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.DirectionsCar" Class="mr-2" />
+                Violations by Car Brand
+            </MudText>
+            @if (_stats.ViolationsByBrand.Any())
+            {
+                <MudGrid>
+                    @foreach (var brand in _stats.ViolationsByBrand)
+                    {
+                        <MudItem xs="6" sm="4" md="3" lg="2">
+                            <MudPaper Elevation="1" Class="pa-4 rounded-lg text-center" Style="height: 100%;">
+                                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudAvatar Size="Size.Large" Style="background: transparent;">
+                                        <MudImage Src="@GetBrandLogoUrl(brand.Brand)" Alt="@brand.Brand" Width="48" Height="48" ObjectFit="ObjectFit.Contain" />
+                                    </MudAvatar>
+                                    <MudText Typo="Typo.body2" Class="fw-bold">@brand.Brand</MudText>
+                                    <MudText Typo="Typo.h6" Color="Color.Primary">@brand.Count</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@brand.Percentage%</MudText>
+                                    <MudProgressLinear Value="@brand.Percentage" Color="Color.Primary" Size="Size.Small" Rounded="true" />
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+            else
+            {
+                <MudText Color="Color.Secondary">No data available</MudText>
+            }
+        </MudPaper>
+
+        <MudGrid>
+            <!-- Violations by Type - Pie Chart -->
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg" Style="height: 100%;">
+                    <MudText Typo="Typo.h5" Class="fw-bold mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.TurnLeft" Class="mr-2" />
+                        Violations by Type
+                    </MudText>
+                    @if (_stats.ViolationsByType.Any())
+                    {
+                        <MudChart ChartType="ChartType.Pie"
+                                  InputData="@_stats.ViolationsByType.Select(v => (double)v.Count).ToArray()"
+                                  InputLabels="@_stats.ViolationsByType.Select(v => v.ViolationType).ToArray()"
+                                  Width="100%"
+                                  Height="300px"
+                                  ChartOptions="@(new ChartOptions { ChartPalette = _chartColors })" />
+                        <MudDivider Class="my-4" />
+                        <MudStack Spacing="2">
+                            @foreach (var type in _stats.ViolationsByType)
+                            {
+                                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.body2">@type.ViolationType</MudText>
+                                    <MudText Typo="Typo.body2" Class="fw-bold">@type.Count (@type.Percentage%)</MudText>
+                                </MudStack>
+                            }
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudText Color="Color.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Violations by Color -->
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg" Style="height: 100%;">
+                    <MudText Typo="Typo.h5" Class="fw-bold mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Palette" Class="mr-2" />
+                        Violations by Car Color
+                    </MudText>
+                    @if (_stats.ViolationsByColor.Any())
+                    {
+                        <MudStack Spacing="3">
+                            @foreach (var color in _stats.ViolationsByColor)
+                            {
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <div style="width: 20px; height: 20px; border-radius: 50%; background-color: @GetCssColor(color.Color); border: 1px solid #ccc;"></div>
+                                            <MudText Typo="Typo.body2">@color.Color</MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2" Class="fw-bold">@color.Count (@color.Percentage%)</MudText>
+                                    </MudStack>
+                                    <MudProgressLinear Value="@color.Percentage" Color="Color.Secondary" Size="Size.Medium" Rounded="true" />
+                                </MudStack>
+                            }
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudText Color="Color.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Time Analysis -->
+        <MudGrid>
+            <!-- By Hour -->
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg">
+                    <MudText Typo="Typo.h5" Class="fw-bold mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Class="mr-2" />
+                        Violations by Hour of Day
+                    </MudText>
+                    @if (_stats.ViolationsByHour.Any())
+                    {
+                        <MudChart ChartType="ChartType.Bar"
+                                  InputData="@GetHourlyData()"
+                                  InputLabels="@GetHourlyLabels()"
+                                  Width="100%"
+                                  Height="300px"
+                                  ChartOptions="@(new ChartOptions { ChartPalette = new[] { "#1976d2" } })" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">
+                            Peak violation time: @GetPeakHour()
+                        </MudText>
+                    }
+                    else
+                    {
+                        <MudText Color="Color.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- By Day of Week -->
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg" Style="height: 100%;">
+                    <MudText Typo="Typo.h5" Class="fw-bold mb-4">
+                        <MudIcon Icon="@Icons.Material.Filled.CalendarViewWeek" Class="mr-2" />
+                        By Day of Week
+                    </MudText>
+                    @if (_stats.ViolationsByDayOfWeek.Any())
+                    {
+                        <MudStack Spacing="2">
+                            @foreach (var day in _stats.ViolationsByDayOfWeek.OrderBy(d => d.DayNumber))
+                            {
+                                var maxCount = _stats.ViolationsByDayOfWeek.Max(d => d.Count);
+                                var percentage = maxCount > 0 ? (double)day.Count / maxCount * 100 : 0;
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween">
+                                        <MudText Typo="Typo.body2">@day.DayOfWeek</MudText>
+                                        <MudText Typo="Typo.body2" Class="fw-bold">@day.Count</MudText>
+                                    </MudStack>
+                                    <MudProgressLinear Value="@percentage" Color="Color.Info" Size="Size.Medium" Rounded="true" />
+                                </MudStack>
+                            }
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudText Color="Color.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Trend Chart -->
+        <MudPaper Elevation="2" Class="pa-6 rounded-lg">
+            <MudText Typo="Typo.h5" Class="fw-bold mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Class="mr-2" />
+                30-Day Violation Trend
+            </MudText>
+            @if (_stats.ViolationsTrend.Any())
+            {
+                <MudChart ChartType="ChartType.Line"
+                          ChartSeries="@_trendSeries"
+                          XAxisLabels="@_trendLabels"
+                          Width="100%"
+                          Height="350px"
+                          ChartOptions="@(new ChartOptions { YAxisTicks = 1, LineStrokeWidth = 3, ChartPalette = new[] { "#1976d2", "#9c27b0" } })" />
+                <MudStack Row="true" Justify="Justify.SpaceAround" Class="mt-4">
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.h4" Color="Color.Primary" Class="fw-bold">@_stats.ViolationsTrend.Sum(t => t.Count)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Total (30 days)</MudText>
+                    </MudStack>
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.h4" Color="Color.Info" Class="fw-bold">@(_stats.ViolationsTrend.Any() ? Math.Round(_stats.ViolationsTrend.Average(t => t.Count), 1) : 0)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Daily Average</MudText>
+                    </MudStack>
+                    <MudStack AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.h4" Color="Color.Success" Class="fw-bold">@(_stats.ViolationsTrend.Any() ? _stats.ViolationsTrend.Max(t => t.Count) : 0)</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Peak Day</MudText>
+                    </MudStack>
+                </MudStack>
+            }
+            else
+            {
+                <MudText Color="Color.Secondary">No trend data available</MudText>
+            }
+        </MudPaper>
+
+        <!-- Location Hotspots -->
+        @if (_stats.ViolationLocations.Any())
+        {
+            <MudPaper Elevation="2" Class="pa-6 rounded-lg">
+                <MudText Typo="Typo.h5" Class="fw-bold mb-4">
+                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Class="mr-2" />
+                    Top Violation Hotspots
+                </MudText>
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Location</th>
+                            <th>Coordinates</th>
+                            <th>Violations</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ var rank = 0; }
+                        @foreach (var location in _stats.ViolationLocations.Take(10))
+                        {
+                            rank++;
+                            <tr>
+                                <td>
+                                    <MudChip T="string" Size="Size.Small" Color="@(rank <= 3 ? Color.Warning : Color.Default)">@rank</MudChip>
+                                </td>
+                                <td>@(string.IsNullOrEmpty(location.LocationDescription) ? "Unknown" : location.LocationDescription)</td>
+                                <td>@location.Latitude.ToString("F4"), @location.Longitude.ToString("F4")</td>
+                                <td><MudText Class="fw-bold">@location.Count</MudText></td>
+                                <td>
+                                    <MudButton Size="Size.Small" 
+                                               Variant="Variant.Text" 
+                                               StartIcon="@Icons.Material.Filled.Map"
+                                               Href="@($"https://www.google.com/maps?q={location.Latitude},{location.Longitude}")"
+                                               Target="_blank">
+                                        View
+                                    </MudButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private DashboardStatistics? _stats;
+    private bool _isLoading = true;
+    private Dictionary<string, string> _brandLogos = new();
+    private List<ChartSeries> _trendSeries = new();
+    private string[] _trendLabels = Array.Empty<string>();
+
+    private readonly string[] _chartColors = { "#f44336", "#ff9800", "#2196f3", "#1976d2", "#9c27b0", "#4caf50", "#607d8b" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            var brands = await CarBrandRepository.GetAllAsync();
+            _brandLogos = brands.ToDictionary(b => b.Name.ToLower(), b => b.LogoUrl);
+
+            _stats = await ViolationRepository.GetDashboardStatisticsAsync();
+
+            if (_stats.ViolationsTrend.Any())
+            {
+                _trendSeries = new List<ChartSeries>
+                {
+                    new ChartSeries { Name = "Violations", Data = _stats.ViolationsTrend.Select(t => (double)t.Count).ToArray() }
+                };
+                _trendLabels = _stats.ViolationsTrend.Select(t => t.Date.ToString("MM/dd")).ToArray();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading statistics: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private string GetBrandLogoUrl(string brand)
+    {
+        if (_brandLogos.TryGetValue(brand.ToLower(), out var url))
+            return url;
+        return "/images/car-default.png";
+    }
+
+    private string GetCssColor(string colorName)
+    {
+        return colorName.ToLower() switch
+        {
+            "black" => "#000000",
+            "white" => "#ffffff",
+            "silver" or "gray" or "grey" => "#9e9e9e",
+            "red" => "#f44336",
+            "blue" => "#2196f3",
+            "green" => "#4caf50",
+            "yellow" => "#ffeb3b",
+            "orange" => "#ff9800",
+            "brown" => "#795548",
+            "purple" => "#9c27b0",
+            "gold" => "#ffd700",
+            "beige" or "tan" => "#d2b48c",
+            _ => "#607d8b"
+        };
+    }
+
+    private double[] GetHourlyData()
+    {
+        var data = new double[24];
+        foreach (var hour in _stats!.ViolationsByHour)
+        {
+            if (hour.Hour >= 0 && hour.Hour < 24)
+                data[hour.Hour] = hour.Count;
+        }
+        return data;
+    }
+
+    private string[] GetHourlyLabels()
+    {
+        return Enumerable.Range(0, 24).Select(h => $"{h}:00").ToArray();
+    }
+
+    private string GetPeakHour()
+    {
+        if (!_stats!.ViolationsByHour.Any()) return "N/A";
+        var peak = _stats.ViolationsByHour.OrderByDescending(h => h.Count).First();
+        var hour = peak.Hour;
+        var ampm = hour >= 12 ? "PM" : "AM";
+        var displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+        return $"{displayHour}:00 {ampm}";
+    }
+}

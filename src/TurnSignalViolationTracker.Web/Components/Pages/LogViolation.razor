@@ -1,0 +1,526 @@
+@page "/log-violation"
+@inject IJSRuntime JS
+@inject IAIServiceFactory AIServiceFactory
+@inject IViolationRepository ViolationRepository
+@inject ICarBrandRepository CarBrandRepository
+@inject IGeocodingService GeocodingService
+@inject AuthStateService AuthState
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Log Violation - Turn Signal Tracker</PageTitle>
+
+@if (!AuthState.IsAuthenticated)
+{
+    <MudText>Please login to continue.</MudText>
+}
+else
+{
+    <MudStack Spacing="4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4" Class="fw-bold">Log New Violation</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Report a turn signal violation using voice or manual entry</MudText>
+            </div>
+        </MudStack>
+
+        <MudGrid>
+            <!-- Voice Recording Section -->
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg" Style="height: 100%;">
+                    <MudStack Spacing="3" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Mic" Size="Size.Large" Color="@(_isRecording ? Color.Error : Color.Primary)" />
+                        <MudText Typo="Typo.h6" Class="fw-bold">Voice Recording</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                            Click the button and describe the violation. Include the car make, model, color, year (if known), 
+                            where they turned, and any location details.
+                        </MudText>
+                        
+                        <MudStack Row="true" Spacing="2" Class="mt-4">
+                            @if (!_isRecording)
+                            {
+                                <MudButton Variant="Variant.Filled" 
+                                           Color="Color.Primary" 
+                                           Size="Size.Large"
+                                           StartIcon="@Icons.Material.Filled.Mic"
+                                           OnClick="@StartRecording"
+                                           Disabled="@_isProcessing">
+                                    Start Recording
+                                </MudButton>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Filled" 
+                                           Color="Color.Error" 
+                                           Size="Size.Large"
+                                           StartIcon="@Icons.Material.Filled.Stop"
+                                           OnClick="@StopRecording"
+                                           Class="pulse-animation">
+                                    Stop Recording
+                                </MudButton>
+                            }
+                        </MudStack>
+
+                        @if (_isRecording)
+                        {
+                            <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="mt-2">
+                                <MudProgressCircular Indeterminate="true" Color="Color.Error" Size="Size.Small" />
+                                <MudText Typo="Typo.caption" Color="Color.Error">Recording... @_recordingDuration</MudText>
+                            </MudStack>
+                        }
+
+                        @if (_isProcessing)
+                        {
+                            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="mt-4">
+                                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                                <MudText Typo="Typo.body2" Color="Color.Primary">Processing with AI...</MudText>
+                            </MudStack>
+                        }
+
+                        @if (!string.IsNullOrEmpty(_extractedTranscript))
+                        {
+                            <MudAlert Severity="Severity.Info" Class="mt-4" Dense="true">
+                                <MudText Typo="Typo.caption" Class="fw-bold">Transcript:</MudText>
+                                <MudText Typo="Typo.body2">@_extractedTranscript</MudText>
+                            </MudAlert>
+                        }
+
+                        <MudDivider Class="my-4" Style="width: 100%;" />
+
+                        <!-- GPS Location -->
+                        <MudStack Spacing="2" Class="w-100">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.LocationOn" Color="Color.Primary" />
+                                <MudText Typo="Typo.subtitle1" Class="fw-bold">Location</MudText>
+                            </MudStack>
+                            
+                            <MudButton Variant="Variant.Outlined" 
+                                       Color="Color.Primary" 
+                                       FullWidth="true"
+                                       StartIcon="@Icons.Material.Filled.MyLocation"
+                                       OnClick="@GetCurrentLocation"
+                                       Disabled="@_isGettingLocation">
+                                @if (_isGettingLocation)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <span>Getting location...</span>
+                                }
+                                else
+                                {
+                                    <span>Get Current GPS Location</span>
+                                }
+                            </MudButton>
+
+                            @if (_model.Latitude.HasValue && _model.Longitude.HasValue)
+                            {
+                                <MudAlert Severity="Severity.Success" Dense="true">
+                                    <MudText Typo="Typo.caption">
+                                        📍 @_model.Latitude.Value.ToString("F6"), @_model.Longitude.Value.ToString("F6")
+                                    </MudText>
+                                    @if (!string.IsNullOrEmpty(_model.City))
+                                    {
+                                        <MudText Typo="Typo.caption">
+                                            @_model.City, @_model.State, @_model.Country
+                                        </MudText>
+                                    }
+                                </MudAlert>
+                            }
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Manual Entry Form -->
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-6 rounded-lg">
+                    <MudForm @ref="_form" Model="@_model">
+                        <MudStack Spacing="3">
+                            <MudText Typo="Typo.h6" Class="fw-bold">Violation Details</MudText>
+                            
+                            <MudGrid>
+                                <MudItem xs="12" sm="6">
+                                    <MudAutocomplete T="string" 
+                                                     Label="Car Make *" 
+                                                     @bind-Value="_model.CarMake"
+                                                     SearchFunc="@SearchCarMakes"
+                                                     Variant="Variant.Outlined"
+                                                     Dense="true"
+                                                     Required="true"
+                                                     RequiredError="Car make is required" />
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudTextField @bind-Value="_model.CarModel" 
+                                                  Label="Car Model *" 
+                                                  Variant="Variant.Outlined"
+                                                  Dense="true"
+                                                  Required="true"
+                                                  RequiredError="Car model is required" />
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudAutocomplete T="string"
+                                                     Label="Car Color *"
+                                                     @bind-Value="_model.CarColor"
+                                                     SearchFunc="@SearchColors"
+                                                     Variant="Variant.Outlined"
+                                                     Dense="true"
+                                                     Required="true"
+                                                     RequiredError="Car color is required" />
+                                </MudItem>
+                                <MudItem xs="12" sm="6">
+                                    <MudNumericField @bind-Value="_model.CarYear" 
+                                                     Label="Car Year" 
+                                                     Variant="Variant.Outlined"
+                                                     Dense="true"
+                                                     Min="1990"
+                                                     Max="@DateTime.Now.Year" />
+                                </MudItem>
+                            </MudGrid>
+
+                            <MudSelect T="ViolationType" 
+                                       @bind-Value="_model.ViolationType" 
+                                       Label="Violation Type *" 
+                                       Variant="Variant.Outlined"
+                                       Dense="true"
+                                       Required="true"
+                                       RequiredError="Violation type is required">
+                                <MudSelectItem Value="ViolationType.LeftTurnWithoutSignal">Left Turn Without Signal</MudSelectItem>
+                                <MudSelectItem Value="ViolationType.RightTurnWithoutSignal">Right Turn Without Signal</MudSelectItem>
+                                <MudSelectItem Value="ViolationType.LaneChangeLeftWithoutSignal">Lane Change Left Without Signal</MudSelectItem>
+                                <MudSelectItem Value="ViolationType.LaneChangeRightWithoutSignal">Lane Change Right Without Signal</MudSelectItem>
+                                <MudSelectItem Value="ViolationType.UTurnWithoutSignal">U-Turn Without Signal</MudSelectItem>
+                            </MudSelect>
+
+                            <MudTextField @bind-Value="_model.LocationDescription" 
+                                          Label="Location Description" 
+                                          Variant="Variant.Outlined"
+                                          Dense="true"
+                                          Placeholder="e.g., Main Street and 5th Avenue" />
+
+                            <MudGrid>
+                                <MudItem xs="12" sm="4">
+                                    <MudTextField @bind-Value="_model.City" 
+                                                  Label="City" 
+                                                  Variant="Variant.Outlined"
+                                                  Dense="true" />
+                                </MudItem>
+                                <MudItem xs="12" sm="4">
+                                    <MudTextField @bind-Value="_model.State" 
+                                                  Label="State" 
+                                                  Variant="Variant.Outlined"
+                                                  Dense="true" />
+                                </MudItem>
+                                <MudItem xs="12" sm="4">
+                                    <MudTextField @bind-Value="_model.Country" 
+                                                  Label="Country" 
+                                                  Variant="Variant.Outlined"
+                                                  Dense="true" />
+                                </MudItem>
+                            </MudGrid>
+
+                            <MudDatePicker @bind-Date="_occurredDate" 
+                                           Label="Date of Occurrence" 
+                                           Variant="Variant.Outlined"
+                                           Dense="true" />
+
+                            <MudTimePicker @bind-Time="_occurredTime" 
+                                           Label="Time of Occurrence" 
+                                           Variant="Variant.Outlined"
+                                           Dense="true" />
+
+                            <MudTextField @bind-Value="_model.Notes" 
+                                          Label="Additional Notes" 
+                                          Variant="Variant.Outlined"
+                                          Lines="3" />
+
+                            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-4">
+                                <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="@ClearForm">
+                                    Clear
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" 
+                                           Color="Color.Primary" 
+                                           OnClick="@SubmitViolation"
+                                           Disabled="@_isSubmitting">
+                                    @if (_isSubmitting)
+                                    {
+                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                        <span>Saving...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Log Violation</span>
+                                    }
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudForm>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudStack>
+}
+
+<style>
+    .pulse-animation {
+        animation: pulse 1s infinite;
+    }
+    
+    @@keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+</style>
+
+@code {
+    private MudForm? _form;
+    private ViolationCreateDto _model = new();
+    private DateTime? _occurredDate = DateTime.Today;
+    private TimeSpan? _occurredTime = DateTime.Now.TimeOfDay;
+    
+    private bool _isRecording = false;
+    private bool _isProcessing = false;
+    private bool _isSubmitting = false;
+    private bool _isGettingLocation = false;
+    private string _recordingDuration = "0:00";
+    private string _extractedTranscript = string.Empty;
+    
+    private List<string> _carMakes = new();
+    private readonly List<string> _colors = new() 
+    { 
+        "Black", "White", "Silver", "Gray", "Red", "Blue", "Green", "Yellow", 
+        "Orange", "Brown", "Purple", "Gold", "Beige", "Tan", "Bronze", "Maroon"
+    };
+
+    private System.Timers.Timer? _recordingTimer;
+    private int _recordingSeconds = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        var brands = await CarBrandRepository.GetAllAsync();
+        _carMakes = brands.Select(b => b.Name).ToList();
+    }
+
+    private async Task StartRecording()
+    {
+        try
+        {
+            _isRecording = true;
+            _recordingSeconds = 0;
+            _extractedTranscript = string.Empty;
+            
+            // Start timer
+            _recordingTimer = new System.Timers.Timer(1000);
+            _recordingTimer.Elapsed += (s, e) =>
+            {
+                _recordingSeconds++;
+                _recordingDuration = $"{_recordingSeconds / 60}:{(_recordingSeconds % 60):D2}";
+                InvokeAsync(StateHasChanged);
+            };
+            _recordingTimer.Start();
+            
+            await JS.InvokeVoidAsync("audioRecorder.start");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to start recording: {ex.Message}", Severity.Error);
+            _isRecording = false;
+        }
+    }
+
+    private async Task StopRecording()
+    {
+        try
+        {
+            _recordingTimer?.Stop();
+            _recordingTimer?.Dispose();
+            _isRecording = false;
+            _isProcessing = true;
+            StateHasChanged();
+
+            var audioData = await JS.InvokeAsync<byte[]>("audioRecorder.stop");
+            
+            if (audioData != null && audioData.Length > 0)
+            {
+                var aiService = AIServiceFactory.CreateAIService();
+                var result = await aiService.ExtractViolationFromAudioAsync(audioData, "audio/webm");
+                
+                if (result.Success)
+                {
+                    // Populate form with extracted data
+                    if (!string.IsNullOrEmpty(result.CarMake))
+                        _model.CarMake = result.CarMake;
+                    if (!string.IsNullOrEmpty(result.CarModel))
+                        _model.CarModel = result.CarModel;
+                    if (!string.IsNullOrEmpty(result.CarColor))
+                        _model.CarColor = result.CarColor;
+                    if (result.CarYear.HasValue)
+                        _model.CarYear = result.CarYear;
+                    if (result.ViolationType.HasValue)
+                        _model.ViolationType = result.ViolationType.Value;
+                    if (!string.IsNullOrEmpty(result.LocationDescription))
+                        _model.LocationDescription = result.LocationDescription;
+                    
+                    _model.OriginalVoiceTranscript = result.OriginalTranscript;
+                    _extractedTranscript = result.OriginalTranscript ?? string.Empty;
+                    
+                    Snackbar.Add("Voice data extracted successfully!", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add(result.ErrorMessage ?? "Failed to extract data from voice", Severity.Warning);
+                }
+            }
+            else
+            {
+                Snackbar.Add("No audio recorded", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to process recording: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isProcessing = false;
+        }
+    }
+
+    private async Task GetCurrentLocation()
+    {
+        try
+        {
+            _isGettingLocation = true;
+            StateHasChanged();
+
+            var location = await JS.InvokeAsync<LocationResult>("getLocation");
+            
+            if (location != null && location.Success)
+            {
+                _model.Latitude = location.Latitude;
+                _model.Longitude = location.Longitude;
+                
+                // Reverse geocode
+                var geocodeResult = await GeocodingService.ReverseGeocodeAsync(location.Latitude, location.Longitude);
+                if (geocodeResult.Success)
+                {
+                    _model.City = geocodeResult.City ?? string.Empty;
+                    _model.State = geocodeResult.State ?? string.Empty;
+                    _model.Country = geocodeResult.Country ?? string.Empty;
+                    if (string.IsNullOrEmpty(_model.LocationDescription) && !string.IsNullOrEmpty(geocodeResult.Street))
+                    {
+                        _model.LocationDescription = geocodeResult.Street;
+                    }
+                }
+                
+                Snackbar.Add("Location captured successfully!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(location?.ErrorMessage ?? "Failed to get location", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Location error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isGettingLocation = false;
+        }
+    }
+
+    private async Task SubmitViolation()
+    {
+        if (_form != null)
+        {
+            await _form.Validate();
+            if (!_form.IsValid)
+            {
+                Snackbar.Add("Please fill in all required fields", Severity.Warning);
+                return;
+            }
+        }
+
+        _isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var violation = new Violation
+            {
+                CarMake = _model.CarMake,
+                CarModel = _model.CarModel,
+                CarColor = _model.CarColor,
+                CarYear = _model.CarYear,
+                ViolationType = _model.ViolationType,
+                Latitude = _model.Latitude,
+                Longitude = _model.Longitude,
+                LocationDescription = _model.LocationDescription,
+                City = _model.City,
+                State = _model.State,
+                Country = _model.Country,
+                OccurredAt = _occurredDate?.Date.Add(_occurredTime ?? TimeSpan.Zero) ?? DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+                CreatedByUserId = AuthState.UserId!.Value,
+                OriginalVoiceTranscript = _model.OriginalVoiceTranscript,
+                Notes = _model.Notes
+            };
+
+            await ViolationRepository.CreateAsync(violation);
+            
+            Snackbar.Add("Violation logged successfully!", Severity.Success);
+            Navigation.NavigateTo("/violations");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save violation: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void ClearForm()
+    {
+        _model = new ViolationCreateDto();
+        _occurredDate = DateTime.Today;
+        _occurredTime = DateTime.Now.TimeOfDay;
+        _extractedTranscript = string.Empty;
+        _form?.ResetAsync();
+    }
+
+    private Task<IEnumerable<string>> SearchCarMakes(string value, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(value))
+            return Task.FromResult(_carMakes.AsEnumerable());
+        
+        return Task.FromResult(_carMakes
+            .Where(m => m.Contains(value, StringComparison.InvariantCultureIgnoreCase))
+            .AsEnumerable());
+    }
+
+    private Task<IEnumerable<string>> SearchColors(string value, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(value))
+            return Task.FromResult(_colors.AsEnumerable());
+        
+        return Task.FromResult(_colors
+            .Where(c => c.Contains(value, StringComparison.InvariantCultureIgnoreCase))
+            .AsEnumerable());
+    }
+
+    private class LocationResult
+    {
+        public bool Success { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
+}

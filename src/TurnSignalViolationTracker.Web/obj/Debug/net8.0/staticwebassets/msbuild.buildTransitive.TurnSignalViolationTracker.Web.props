@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../buildMultiTargeting/TurnSignalViolationTracker.Web.props" />
+</Project>

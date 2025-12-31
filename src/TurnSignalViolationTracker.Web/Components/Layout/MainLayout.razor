@@ -1,0 +1,136 @@
+@inherits LayoutComponentBase
+@inject AuthStateService AuthState
+@inject NavigationManager Navigation
+
+<MudThemeProvider Theme="_theme" IsDarkMode="_isDarkMode" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    @if (AuthState.IsAuthenticated)
+    {
+        <MudAppBar Elevation="1" Dense="true" Color="Color.Surface">
+            <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@ToggleDrawer" />
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.DirectionsCar" Color="Color.Primary" Size="Size.Large" />
+                <MudText Typo="Typo.h6" Class="fw-bold">Turn Signal Tracker</MudText>
+            </MudStack>
+            <MudSpacer />
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" 
+                          Color="Color.Inherit" 
+                          OnClick="@ToggleDarkMode" 
+                          Title="@(_isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode")" />
+            <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit">
+                <MudMenuItem>
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body2" Class="fw-bold">@AuthState.FullName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@AuthState.Username</MudText>
+                    </MudStack>
+                </MudMenuItem>
+                <MudDivider />
+                <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="@Logout">Logout</MudMenuItem>
+            </MudMenu>
+        </MudAppBar>
+        <MudDrawer @bind-Open="_drawerOpen" Elevation="1" Variant="@DrawerVariant.Mini" OpenMiniOnHover="true">
+            <MudNavMenu>
+                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+                <MudNavLink Href="/log-violation" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AddCircle">Log Violation</MudNavLink>
+                <MudNavLink Href="/violations" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.List">All Violations</MudNavLink>
+                <MudNavLink Href="/statistics" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Analytics">Statistics</MudNavLink>
+            </MudNavMenu>
+        </MudDrawer>
+        <MudMainContent Class="pt-16 px-4">
+            <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Class="py-4">
+                @Body
+            </MudContainer>
+        </MudMainContent>
+    }
+    else
+    {
+        <MudMainContent>
+            @Body
+        </MudMainContent>
+    }
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+
+    private MudTheme _theme = new MudTheme
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#1976d2",
+            Secondary = "#9c27b0",
+            AppbarBackground = "#ffffff",
+            AppbarText = "#424242",
+            Background = "#f5f5f5",
+            Surface = "#ffffff",
+            DrawerBackground = "#ffffff",
+            DrawerText = "#424242",
+            Success = "#4caf50",
+            Warning = "#ff9800",
+            Error = "#f44336",
+            Info = "#2196f3"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#90caf9",
+            Secondary = "#ce93d8",
+            AppbarBackground = "#1e1e1e",
+            AppbarText = "#ffffff",
+            Background = "#121212",
+            Surface = "#1e1e1e",
+            DrawerBackground = "#1e1e1e",
+            DrawerText = "#ffffff",
+            Success = "#81c784",
+            Warning = "#ffb74d",
+            Error = "#e57373",
+            Info = "#64b5f6"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = new[] { "Inter", "Roboto", "Helvetica", "Arial", "sans-serif" }
+            }
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DefaultBorderRadius = "8px"
+        }
+    };
+
+    protected override void OnInitialized()
+    {
+        AuthState.OnAuthStateChanged += StateHasChanged;
+        
+        if (!AuthState.IsAuthenticated && !Navigation.Uri.Contains("/login"))
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private void ToggleDrawer()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private void ToggleDarkMode()
+    {
+        _isDarkMode = !_isDarkMode;
+    }
+
+    private void Logout()
+    {
+        AuthState.Logout();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        AuthState.OnAuthStateChanged -= StateHasChanged;
+    }
+}
