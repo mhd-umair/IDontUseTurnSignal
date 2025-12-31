@@ -22,7 +22,7 @@ builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddScoped<IDriverService, DriverService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IAIService, AIService>();
+builder.Services.AddHttpClient<IAIService, AIService>();
 
 var app = builder.Build();
 

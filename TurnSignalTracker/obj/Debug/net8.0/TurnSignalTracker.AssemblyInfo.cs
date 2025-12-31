@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("TurnSignalTracker")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+40b5636b161af3f79a01c02940a9714049501311")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d26328480f2573d25d093397a7625e0160138b8c")]
 [assembly: System.Reflection.AssemblyProductAttribute("TurnSignalTracker")]
 [assembly: System.Reflection.AssemblyTitleAttribute("TurnSignalTracker")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
