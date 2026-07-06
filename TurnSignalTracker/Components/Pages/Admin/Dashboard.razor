@@ -1,18 +1,71 @@
 @page "/admin/dashboard"
 @using TurnSignalTracker.Models
 @using TurnSignalTracker.Services
-@inject IAIService AIService
+@inject IAutomationService AutomationService
 @inject IDriverService DriverService
+@inject IOptions<AutomationSettings> AutomationOptions
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
 @attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@implements IDisposable
 
 <PageTitle>Admin Portal | TurnSignalTracker</PageTitle>
 
 <div class="max-w-4xl mx-auto">
     <div class="mb-8">
         <h2 class="text-3xl font-bold text-slate-900">Admin Portal</h2>
-        <p class="text-slate-500">Log new violations using AI voice processing.</p>
+        <p class="text-slate-500">Log violations with AI automation — voice, text, or API webhook.</p>
+    </div>
+
+    <!-- Automation Controls -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                    <span>⚡</span> AI Automation
+                </h3>
+                <p class="text-sm text-slate-600 mt-1">
+                    When enabled, violations are saved automatically after AI extraction.
+                </p>
+            </div>
+            <label class="flex items-center gap-3 cursor-pointer">
+                <span class="text-sm font-medium text-slate-700">Auto-submit</span>
+                <button type="button"
+                        @onclick="ToggleAutoSubmit"
+                        class="relative inline-flex h-7 w-12 items-center rounded-full transition-colors @(_autoSubmit ? "bg-blue-600" : "bg-gray-300")">
+                    <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform @(_autoSubmit ? "translate-x-6" : "translate-x-1")"></span>
+                </button>
+            </label>
+        </div>
+        @if (_autoSubmit)
+        {
+            <div class="mt-3 text-sm text-blue-700 bg-blue-100/50 rounded-lg px-4 py-2">
+                Auto-submit is ON — violations will be logged without manual review.
+            </div>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(_statusMessage))
+    {
+        <div class="mb-6 px-4 py-3 rounded-xl text-sm font-medium @(_statusIsError ? "bg-red-50 text-red-700 border border-red-200" : "bg-green-50 text-green-700 border border-green-200")">
+            @_statusMessage
+        </div>
+    }
+
+    <!-- Text Input Section -->
+    <div class="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 mb-6">
+        <h3 class="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
+            <span>⌨️</span> Type a Violation
+        </h3>
+        <textarea @bind="_textInput"
+                  rows="3"
+                  placeholder="Example: Black BMW X5 2022 turned left on Main Street without signal"
+                  class="w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-none text-slate-800"></textarea>
+        <button @onclick="ProcessTextInput"
+                disabled="@(_isProcessing || string.IsNullOrWhiteSpace(_textInput))"
+                class="mt-3 w-full sm:w-auto bg-indigo-600 text-white font-bold py-2.5 px-6 rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+            @(_isProcessing ? "Processing..." : "🤖 Process with AI")
+        </button>
     </div>
 
     <!-- Voice Input Section -->
@@ -23,7 +76,7 @@
                 <span class="text-3xl">@(_isRecording ? "⏹️" : "🎙️")</span>
             </div>
             <h3 class="text-xl font-semibold text-slate-800">
-                @(_isRecording ? "Listening..." : "Tap to Report Violation")
+                @(_isRecording ? "Listening..." : "Or Tap to Report by Voice")
             </h3>
             <p class="text-slate-500 mt-2">
                 @(_isRecording ? "Speak now. Describe the car and violation." : "Example: 'Black BMW X5 turned left on Main Street without signal'")
@@ -78,7 +131,7 @@
                         GPS: @(_draftDriver.Latitude?.ToString("F4") ?? "N/A"), @(_draftDriver.Longitude?.ToString("F4") ?? "N/A")
                     </div>
                 </div>
-                 <div class="md:col-span-2">
+                <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-slate-700 mb-1">Violation</label>
                     <input @bind="_draftDriver.ViolationType" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow" />
                 </div>
@@ -94,6 +147,13 @@
             </div>
         </div>
     }
+
+    <!-- API Info -->
+    <div class="mt-8 bg-slate-50 rounded-xl border border-slate-200 p-6">
+        <h4 class="text-sm font-bold text-slate-700 uppercase tracking-wide mb-2">API Automation</h4>
+        <p class="text-sm text-slate-600 mb-2">POST <code class="bg-white px-2 py-0.5 rounded text-xs">/api/violations/automate</code> (authenticated)</p>
+        <p class="text-sm text-slate-600">POST <code class="bg-white px-2 py-0.5 rounded text-xs">/api/violations/webhook</code> with header <code class="bg-white px-2 py-0.5 rounded text-xs">X-Automation-Key</code></p>
+    </div>
 </div>
 
 <script>
@@ -102,14 +162,14 @@
             alert("Web Speech API not supported in this browser.");
             return;
         }
-        
+
         const recognition = new webkitSpeechRecognition();
         recognition.continuous = false;
         recognition.interimResults = false;
         recognition.lang = 'en-US';
 
         recognition.onstart = () => { console.log('Listening...'); };
-        
+
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
             dotnetHelper.invokeMethodAsync('OnSpeechRecognized', transcript);
@@ -125,49 +185,62 @@
 
     window.getGeolocation = (dotnetHelper) => {
         if (navigator.geolocation) {
-             navigator.geolocation.getCurrentPosition(
+            navigator.geolocation.getCurrentPosition(
                 (position) => {
                     dotnetHelper.invokeMethodAsync('OnLocationReceived', position.coords.latitude, position.coords.longitude);
                 },
                 (error) => {
                     console.error("Geolocation error", error);
-                    // Still proceed without location
                     dotnetHelper.invokeMethodAsync('OnLocationReceived', null, null);
                 }
             );
         } else {
-             dotnetHelper.invokeMethodAsync('OnLocationReceived', null, null);
+            dotnetHelper.invokeMethodAsync('OnLocationReceived', null, null);
         }
     }
 </script>
 
 @code {
-    private bool _isRecording = false;
-    private bool _isProcessing = false;
+    private bool _isRecording;
+    private bool _isProcessing;
+    private bool _autoSubmit;
     private string _transcript = "";
+    private string _textInput = "";
+    private string _statusMessage = "";
+    private bool _statusIsError;
     private BadDriver? _draftDriver;
     private DotNetObjectReference<Dashboard>? _objRef;
-    
-    // Temp storage for location until voice is done
+
     private double? _lat;
     private double? _lon;
 
     protected override void OnInitialized()
     {
         _objRef = DotNetObjectReference.Create(this);
+        _autoSubmit = AutomationOptions.Value.AutoSubmitAfterAiProcessing;
+    }
+
+    private void ToggleAutoSubmit()
+    {
+        _autoSubmit = !_autoSubmit;
+    }
+
+    private async Task ProcessTextInput()
+    {
+        await ProcessDescriptionAsync(_textInput.Trim());
+        _textInput = "";
     }
 
     private async Task ToggleRecording()
     {
-        if (_isRecording) return; // Wait for end
-        
+        if (_isRecording) return;
+
         _isRecording = true;
         _draftDriver = null;
         _transcript = "";
-        
-        // Start Geolocation in parallel
+        ClearStatus();
+
         await JS.InvokeVoidAsync("getGeolocation", _objRef);
-        // Start Speech
         await JS.InvokeVoidAsync("startSpeechRecognition", _objRef);
     }
 
@@ -184,12 +257,44 @@
     {
         _isRecording = false;
         _transcript = text;
+        await ProcessDescriptionAsync(text);
+    }
+
+    [JSInvokable]
+    public void OnSpeechError(string error)
+    {
+        _isRecording = false;
+        SetStatus($"Speech recognition failed: {error}", isError: true);
+        StateHasChanged();
+    }
+
+    private async Task ProcessDescriptionAsync(string description)
+    {
         _isProcessing = true;
+        ClearStatus();
         StateHasChanged();
 
-        try 
+        try
         {
-            _draftDriver = await AIService.ProcessVoiceLogAsync(_transcript, _lat, _lon);
+            var result = await AutomationService.ProcessViolationAsync(description, _lat, _lon, _autoSubmit);
+
+            if (!result.Success)
+            {
+                SetStatus(result.Message ?? "Processing failed.", isError: true);
+                return;
+            }
+
+            if (result.AutoSaved)
+            {
+                _draftDriver = null;
+                _transcript = "";
+                SetStatus(result.Message ?? "Violation logged automatically!", isError: false);
+            }
+            else
+            {
+                _draftDriver = result.Driver;
+                SetStatus(result.Message ?? "Review the extracted data below.", isError: false);
+            }
         }
         finally
         {
@@ -198,32 +303,22 @@
         }
     }
 
-    [JSInvokable]
-    public void OnSpeechError(string error)
-    {
-        _isRecording = false;
-        Console.WriteLine($"Speech Error: {error}");
-        StateHasChanged();
-    }
-
     private async Task SaveViolation()
     {
-        if (_draftDriver != null)
+        if (_draftDriver == null) return;
+
+        try
         {
-            try
-            {
-                await DriverService.AddAsync(_draftDriver);
-                _draftDriver = null;
-                _transcript = "";
-                // Show success toast or something? For now just reset.
-            } 
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Save failed: {ex.Message}");
-                // In demo w/o DB, we just clear it
-                 _draftDriver = null;
-                 _transcript = "";
-            }
+            await DriverService.AddAsync(_draftDriver);
+            _draftDriver = null;
+            _transcript = "";
+            SetStatus("Violation saved successfully!", isError: false);
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Save failed: {ex.Message}", isError: false);
+            _draftDriver = null;
+            _transcript = "";
         }
     }
 
@@ -231,6 +326,19 @@
     {
         _draftDriver = null;
         _transcript = "";
+        ClearStatus();
+    }
+
+    private void SetStatus(string message, bool isError)
+    {
+        _statusMessage = message;
+        _statusIsError = isError;
+    }
+
+    private void ClearStatus()
+    {
+        _statusMessage = "";
+        _statusIsError = false;
     }
 
     public void Dispose()

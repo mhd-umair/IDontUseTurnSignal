@@ -1,4 +1,5 @@
 using TurnSignalTracker.Components;
+using TurnSignalTracker.Models;
 using TurnSignalTracker.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
@@ -20,9 +21,13 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
 
 builder.Services.AddCascadingAuthenticationState();
 
+builder.Services.Configure<AutomationSettings>(builder.Configuration.GetSection("Automation"));
+
 builder.Services.AddScoped<IDriverService, DriverService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAutomationService, AutomationService>();
 builder.Services.AddHttpClient<IAIService, AIService>();
+builder.Services.AddHttpClient<IAIInsightsService, AIInsightsService>();
 
 var app = builder.Build();
 

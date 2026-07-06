@@ -1,5 +1,6 @@
 @page "/"
 @inject TurnSignalTracker.Services.IDriverService DriverService
+@inject TurnSignalTracker.Services.IAIInsightsService InsightsService
 @inject IJSRuntime JS
 @using TurnSignalTracker.Models
 @using TurnSignalTracker.Services
@@ -17,6 +18,24 @@
             <div class="text-3xl font-bold text-blue-600">@_totalViolations</div>
         </div>
     </div>
+
+    <!-- AI Insights Section -->
+    @if (!string.IsNullOrEmpty(_aiInsights))
+    {
+        <div class="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-100 p-6">
+            <div class="flex items-start gap-3">
+                <span class="text-2xl">🤖</span>
+                <div>
+                    <h3 class="text-lg font-semibold text-violet-900 mb-1">AI Insights</h3>
+                    <p class="text-violet-800 leading-relaxed">@_aiInsights</p>
+                    @if (_insightsLoading)
+                    {
+                        <p class="text-xs text-violet-500 mt-2 animate-pulse">Refreshing insights...</p>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 
     <!-- Charts Section -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -104,6 +123,8 @@
     private IEnumerable<BadDriver> _recentViolations = Array.Empty<BadDriver>();
     private IEnumerable<BadDriverStats> _stats = Array.Empty<BadDriverStats>();
     private int _totalViolations = 0;
+    private string _aiInsights = "";
+    private bool _insightsLoading;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -150,6 +171,26 @@
                 new BadDriverStats { CarMake = "Ford", Count = 3 }
             };
             _totalViolations = 43;
+        }
+
+        await LoadInsightsAsync();
+    }
+
+    private async Task LoadInsightsAsync()
+    {
+        _insightsLoading = true;
+        try
+        {
+            _aiInsights = await InsightsService.GenerateInsightsAsync(_recentViolations, _stats);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Insights error: {ex.Message}");
+            _aiInsights = "AI insights are temporarily unavailable.";
+        }
+        finally
+        {
+            _insightsLoading = false;
         }
     }
 
